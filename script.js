@@ -2,11 +2,17 @@
 
     // ---------------- reference data ----------------
     const CRITERIA = [
-        { key: 'client', label: 'Bénéfice Client', question: 'Le Client tire-t-il un bénéfice réel et direct de la transformation ?', pathology: 'Inversion des rôles — captation du But', motivation: "Comment mesurerez-vous ce bénéfice ?" },
-        { key: 'acteurs', label: 'Moyens des Acteurs', question: 'Les Acteurs ont-ils concrètement les moyens d\u2019exécuter la transformation ?', pathology: 'Erreur de cadrage — illusion d\u2019exécution', motivation: "Qu’est-ce qui manque pour atteindre 10/10 ?" },
-        { key: 'owner', label: 'Pouvoir de l\u2019Owner', question: 'L\u2019Owner a-t-il, dans les faits, le pouvoir d\u2019arbitrer ?', pathology: 'Trou de gouvernance — illusion de contrôle', motivation: "Qui d’autre pourrait bloquer T ?" },
-        { key: 'w', label: 'Solidité de W', question: 'La croyance (W) résiste-t-elle à une reformulation ou à des faits contraires ?', pathology: 'Dérive des attributs — dogme / faux garant', motivation: "Qu’est-ce qui pourrait invalider cette croyance ?" }
+        { key: 'client', label: 'Bénéfice Client', question: 'Le Client tire-t-il un bénéfice réel et direct de la transformation ?', pathologyOrange: 'Erreur de cadrage', pathologyRouge: 'Captation du but', motivation: "Comment mesurerez-vous ce bénéfice ?" },
+        { key: 'acteurs', label: 'Moyens des Acteurs', question: 'Les Acteurs ont-ils concrètement les moyens d\u2019exécuter la transformation ?', pathologyOrange: 'Illusion d\u2019exécution', pathologyRouge: 'Dérive des attributs', motivation: "Qu’est-ce qui manque pour atteindre le niveau complet ?" },
+        { key: 'owner', label: 'Pouvoir de l\u2019Owner', question: 'L\u2019Owner a-t-il, dans les faits, le pouvoir d\u2019arbitrer ?', pathologyOrange: 'Trou de gouvernance', pathologyRouge: 'Illusion de contrôle', motivation: "Qui d’autre pourrait bloquer T ?" },
+        { key: 'w', label: 'Solidité de W', question: 'La croyance (W) résiste-t-elle à une reformulation ou à des faits contraires ?', pathologyOrange: 'Faux garant', pathologyRouge: 'Dogme', motivation: "Qu’est-ce qui pourrait invalider cette croyance ?" }
     ];
+
+    function pathologyFor(c, niveau) {
+        if (niveau === 'orange') return c.pathologyOrange;
+        if (niveau === 'rouge') return c.pathologyRouge;
+        return '';
+    }
 
     function freshState() {
         return {
@@ -18,10 +24,8 @@
             s4: { client: '', acteurs: '', owner: '', environnement: '', victimesPotentielles: '', beneficiairesIndirects: '' },
             s4_1: { acteurConfronte: '', wAutreActeur: '', divergences: '', convergences: '' },
             s5: {
-                seuilCritique: 7,
-                notes: { client: { note: 5, justif: '' }, acteurs: { note: 5, justif: '' }, owner: { note: 5, justif: '' }, w: { note: 5, justif: '' } }
+                notes: { client: { niveau: null, justif: '' }, acteurs: { niveau: null, justif: '' }, owner: { niveau: null, justif: '' }, w: { niveau: null, justif: '' } }
             },
-            s5_1: { scenarios: { client: { scenario: '', risques: '', probabilite: 5, planB: '' }, acteurs: { scenario: '', risques: '', probabilite: 5, planB: '' }, owner: { scenario: '', risques: '', probabilite: 5, planB: '' }, w: { scenario: '', risques: '', probabilite: 5, planB: '' } } },
             s6: {
                 scoring: { client: { impact: 5, cout: 5, delai: 5 }, acteurs: { impact: 5, cout: 5, delai: 5 }, owner: { impact: 5, cout: 5, delai: 5 }, w: { impact: 5, cout: 5, delai: 5 } },
                 hierarchieNote: '', levier: '', effetsSystemiques: '', porteur: '', signal: '', delaiRevue: ''
@@ -32,11 +36,11 @@
 
     let state = freshState();
 
-    const STEP_LABELS = ['Préparation de la séance', 'Cadrage & verbalisation', 'Cartographie du réel', 'Transformation & Weltanschauung', 'CATWOE', 'Confrontation des perspectives', 'Test de validation', 'Scénarios alternatifs', 'Pathologies & plan d\u2019action', 'Boucle itérative & suivi', 'Synthèse'];
-    const DOT_LABELS = ['0', '1', '2', '3', '4', '4.1', '5', '5.1', '6', '7', '\u2713'];
+    const STEP_LABELS = ['Préparation de la séance', 'Cadrage & verbalisation', 'Cartographie du réel', 'Transformation & Weltanschauung', 'CATWOE', 'Confrontation des perspectives', 'Test de validation', 'Pathologies & plan d\u2019action', 'Boucle itérative & suivi', 'Synthèse'];
+    const DOT_LABELS = ['0', '1', '2', '3', '4', '4.1', '5', '6', '7', '\u2713'];
     let current = 0;
-    const LAST_STEP = 10;
-    const LEVER_FROM = 8; // steps 6, 7 and synthesis get the bronze accent
+    const LAST_STEP = 9;
+    const LEVER_FROM = 7; // steps 6, 7 et synthèse gardent l'accent bronze
 
     // ---------------- helpers ----------------
     function el(tag, attrs, children) {
@@ -121,7 +125,10 @@
     }
 
     function weakCriteria() {
-        return CRITERIA.filter(c => state.s5.notes[c.key].note < state.s5.seuilCritique);
+        return CRITERIA.filter(c => {
+            const n = state.s5.notes[c.key].niveau;
+            return n === 'orange' || n === 'rouge';
+        });
     }
 
     // ---------------- slide 0 — Préparation de la séance ----------------
@@ -249,99 +256,78 @@
     }
 
     // ---------------- slide 5 — Test de validation ----------------
+    function levelButtons(labelText, subText, key, obj, pathologyOrange, pathologyRouge, onChange) {
+        const wrap = el('div', { class: 'field slider-field' });
+
+        const label = el('label', {}, [document.createTextNode(labelText)]);
+        if (subText) label.appendChild(el('span', { class: 'sub' }, [document.createTextNode(subText)]));
+        wrap.appendChild(label);
+
+        const toggle = el('div', { class: 'toggle toggle3' });
+        const btnVert = el('button', { type: 'button', class: 'lvl-btn lvl-vert' }, [document.createTextNode('Complètement')]);
+        const btnOrange = el('button', { type: 'button', class: 'lvl-btn lvl-orange' }, [document.createTextNode('Partiellement')]);
+        const btnRouge = el('button', { type: 'button', class: 'lvl-btn lvl-rouge' }, [document.createTextNode('Non')]);
+
+        const warnText = el('p', { class: 'warn-text' });
+
+        function refresh() {
+            const n = obj[key].niveau;
+            btnVert.classList.toggle('selected', n === 'vert');
+            btnOrange.classList.toggle('selected', n === 'orange');
+            btnRouge.classList.toggle('selected', n === 'rouge');
+            warnText.textContent = n === 'orange' ? ('\u26A0 ' + pathologyOrange)
+                : n === 'rouge' ? ('\u26A0 ' + pathologyRouge)
+                    : '';
+            wrap.classList.toggle('warn-inline', n === 'orange' || n === 'rouge');
+        }
+
+        function select(v) {
+            obj[key].niveau = (obj[key].niveau === v) ? null : v;
+            refresh();
+            if (onChange) onChange();
+        }
+
+        btnVert.addEventListener('click', () => select('vert'));
+        btnOrange.addEventListener('click', () => select('orange'));
+        btnRouge.addEventListener('click', () => select('rouge'));
+
+        toggle.appendChild(btnVert); toggle.appendChild(btnOrange); toggle.appendChild(btnRouge);
+        wrap.appendChild(toggle);
+        wrap.appendChild(warnText);
+
+        refresh();
+        return wrap;
+    }
+
+    // ---------------- slide 5 — Test de validation ----------------
     function buildSlide5() {
         const wrap = el('div', { class: 'slide-inner' });
         wrap.appendChild(el('p', { class: 'eyebrow' }, [el('span', { class: 'num' }, [document.createTextNode('05')]), document.createTextNode(' — Test de validation')]));
         wrap.appendChild(el('h1', { class: 'question' }, [document.createTextNode('La transformation résiste-t-elle à l\u2019épreuve des faits ?')]));
-        wrap.appendChild(el('p', { class: 'hint' }, [document.createTextNode('Notez chaque critère de 1 à 10, puis justifiez. Sous le seuil critique, le critère alimente automatiquement l\u2019étape suivante.')]));
+        wrap.appendChild(el('p', { class: 'hint' }, [document.createTextNode('Pour chaque critère, choisissez le niveau observé, puis justifiez.')]));
 
-        const seuilRow = el('div', { class: 'seuil-row' });
-        seuilRow.appendChild(el('label', {}, [document.createTextNode('Seuil critique')]));
-        const seuilInput = el('input', { type: 'number', min: '1', max: '10' });
-        seuilInput.value = state.s5.seuilCritique;
-        seuilInput.addEventListener('input', () => {
-            const v = parseInt(seuilInput.value, 10);
-            state.s5.seuilCritique = isNaN(v) ? 7 : Math.min(10, Math.max(1, v));
-            repaintWarnings();
-        });
-        seuilRow.appendChild(seuilInput);
-        seuilRow.appendChild(el('span', {}, [document.createTextNode('/ 10')]));
-        wrap.appendChild(seuilRow);
-
-        // Conteneur en 2 colonnes pour les 4 critères
         const grid = el('div', { class: 'grid-2' });
 
-        const warnRefs = [];
         CRITERIA.forEach(c => {
             const data = state.s5.notes[c.key];
             const block = el('div', { class: 'crit-block' });
 
+            block.appendChild(levelButtons(c.label, c.question, c.key, state.s5.notes, c.pathologyOrange, c.pathologyRouge));
 
-            // 1. Le slider seul (+ alerte)
-            const slider = sliderField(c.label, c.question, 'note', data, () => repaintWarnings());
-            block.appendChild(slider);
-
-            const warnText = el('p', { class: 'warn-text' });
-            block.appendChild(warnText);
-
-            // 2. Le champ de justification séparé
             const justifWrap = el('div', { class: 'field' });
-            // const justifLabel = el('label', {}, [document.createTextNode('Justification')]);
             const justifInput = el('textarea', { rows: '2', placeholder: c.motivation });
-
             justifInput.value = data.justif || '';
             justifInput.addEventListener('input', () => { data.justif = justifInput.value; });
-
-            // justifWrap.appendChild(justifLabel);
             justifWrap.appendChild(justifInput);
             block.appendChild(justifWrap);
-
-            warnRefs.push({ key: c.key, slider, warnText, pathology: c.pathology });
 
             grid.appendChild(block);
         });
 
         wrap.appendChild(grid);
-
-        function repaintWarnings() {
-            warnRefs.forEach(r => {
-                const below = state.s5.notes[r.key].note < state.s5.seuilCritique;
-                r.slider.classList.toggle('warn-inline', below);
-                r.warnText.textContent = below ? ('\u26A0 Sous le seuil critique \u2014 ' + r.pathology) : '';
-            });
-        }
-        repaintWarnings();
         return wrap;
     }
 
-    // ---------------- slide 5.1 — Scénarios alternatifs ----------------
-    function buildSlide5_1() {
-        const wrap = el('div', { class: 'slide-inner' });
-        wrap.appendChild(el('p', { class: 'eyebrow' }, [el('span', { class: 'num' }, [document.createTextNode('05.1')]), document.createTextNode(' — Scénarios alternatifs & gestion des risques')]));
-        wrap.appendChild(el('h1', { class: 'question' }, [document.createTextNode('Que se passe-t-il si ces points faibles ne bougent pas ?')]));
-        wrap.appendChild(el('p', { class: 'hint' }, [document.createTextNode('Généré automatiquement à partir des critères sous le seuil critique de l\u2019étape 5.')]));
-
-        const weak = weakCriteria();
-        if (weak.length === 0) {
-            wrap.appendChild(el('p', { class: 'empty-state' }, [document.createTextNode('Aucun critère sous le seuil critique \u2014 cette étape n\u2019est pas nécessaire, passez directement à l\u2019étape 6.')]));
-            return wrap;
-        }
-
-        weak.forEach(c => {
-            const data = state.s5_1.scenarios[c.key];
-            const block = el('div', { class: 'weak-block' });
-            const head = el('div', { class: 'weak-head' });
-            head.appendChild(el('span', { class: 'wk-title' }, [document.createTextNode(c.label + ' — note ' + state.s5.notes[c.key].note + '/10')]));
-            head.appendChild(el('span', { class: 'wk-path' }, [document.createTextNode(c.pathology)]));
-            block.appendChild(head);
-            block.appendChild(field('Scénario alternatif', 'que pourrait-il se passer si ce critère reste faible ?', 'scenario', data, { textarea: true, rows: 2 }));
-            block.appendChild(field('Risques associés', "Quels risques cela implique-t-il ?", 'risques', data, { textarea: true, rows: 2 }));
-            block.appendChild(sliderField('Probabilité que ce risque se produise', null, 'probabilite', data, null, null));
-            block.appendChild(field('Plan B', 'action alternative, et qui prend le relais si le porteur du levier échoue', 'planB', data, { textarea: true, rows: 2 }));
-            wrap.appendChild(block);
-        });
-        return wrap;
-    }
 
     // ---------------- slide 6 — Pathologies & plan d'action ----------------
     function buildSlide6() {
@@ -357,7 +343,7 @@
             const rows = weak.map(c => {
                 const s = state.s6.scoring[c.key];
                 const score = (s.impact + s.cout + s.delai) / 3;
-                return { label: c.label, pathology: c.pathology, score };
+                return { label: c.label, pathology: pathologyFor(c, state.s5.notes[c.key].niveau), score };
             }).sort((a, b) => b.score - a.score);
             rankList.innerHTML = '';
             rows.forEach(r => {
@@ -376,7 +362,7 @@
                 const block = el('div', { class: 'weak-block' });
                 const head = el('div', { class: 'weak-head' });
                 head.appendChild(el('span', { class: 'wk-title' }, [document.createTextNode(c.label)]));
-                head.appendChild(el('span', { class: 'wk-path' }, [document.createTextNode(c.pathology)]));
+                head.appendChild(el('span', { class: 'wk-path' }, [document.createTextNode(pathologyFor(c, state.s5.notes[c.key].niveau))]));
                 block.appendChild(head);
                 const scoreMini = el('div', { class: 'score-mini' });
                 scoreMini.appendChild(sliderField('Impact sur T', null, 'impact', s, recomputeRank, null));
@@ -500,33 +486,23 @@
         wrap.appendChild(sec4_1);
 
         const sec5 = el('div', { class: 'synth-section' });
-        sec5.appendChild(el('h2', {}, [document.createTextNode('05 \u00b7 Test de validation (seuil : ' + state.s5.seuilCritique + '/10)')]));
+        sec5.appendChild(el('h2', {}, [document.createTextNode('05 \u00b7 Test de validation')]));
         CRITERIA.forEach(c => {
             const d = state.s5.notes[c.key];
-            const below = d.note < state.s5.seuilCritique;
-            sec5.appendChild(synthRow(c.label, d.note + '/10' + (below ? ' \u2014 ' + c.pathology : '') + (d.justif ? (' \u2014 ' + d.justif) : '')));
+            const niveauLabel = d.niveau === 'vert' ? 'Complètement' : d.niveau === 'orange' ? 'Partiellement' : d.niveau === 'rouge' ? 'Non' : '\u2014';
+            const path = pathologyFor(c, d.niveau);
+            sec5.appendChild(synthRow(c.label, niveauLabel + (path ? ' \u2014 ' + path : '') + (d.justif ? (' \u2014 ' + d.justif) : '')));
         });
         wrap.appendChild(sec5);
 
         const weak = weakCriteria();
-        if (weak.length) {
-            const sec51 = el('div', { class: 'synth-section' });
-            sec51.appendChild(el('h2', {}, [document.createTextNode('05.1 \u00b7 Scénarios alternatifs')]));
-            weak.forEach(c => {
-                const d = state.s5_1.scenarios[c.key];
-                sec51.appendChild(synthRow(c.label + ' \u2014 scénario', d.scenario));
-                sec51.appendChild(synthRow(c.label + ' \u2014 risques (prob. ' + d.probabilite + '/10)', d.risques));
-                sec51.appendChild(synthRow(c.label + ' \u2014 plan B', d.planB));
-            });
-            wrap.appendChild(sec51);
-        }
 
         const sec6 = el('div', { class: 'synth-section' });
         sec6.appendChild(el('h2', { class: 'lever-label' }, [document.createTextNode('06 \u00b7 Pathologies & plan d\u2019action')]));
         if (weak.length) {
             const ranked = weak.map(c => {
                 const s = state.s6.scoring[c.key];
-                return { label: c.label, pathology: c.pathology, score: (s.impact + s.cout + s.delai) / 3 };
+                return { label: c.label, pathology: pathologyFor(c, state.s5.notes[c.key].niveau), score: (s.impact + s.cout + s.delai) / 3 };
             }).sort((a, b) => b.score - a.score);
             sec6.appendChild(synthRow('Hiérarchie calculée', ranked.map(r => r.label + ' (' + r.pathology + ') \u2014 ' + r.score.toFixed(1)).join('\n')));
         }
@@ -595,28 +571,19 @@
         lines.push('Divergences : ' + (state.s4_1.divergences || '\u2014'));
         lines.push('Convergences : ' + (state.s4_1.convergences || '\u2014'));
         lines.push('');
-        lines.push('05 \u00b7 TEST DE VALIDATION (seuil critique : ' + state.s5.seuilCritique + '/10)');
+        lines.push('05 \u00b7 TEST DE VALIDATION');
         CRITERIA.forEach(c => {
             const d = state.s5.notes[c.key];
-            const below = d.note < state.s5.seuilCritique;
-            lines.push(c.label + ' : ' + d.note + '/10' + (below ? ' \u2014 ' + c.pathology : '') + (d.justif ? (' \u2014 ' + d.justif) : ''));
+            const niveauLabel = d.niveau === 'vert' ? 'Complètement' : d.niveau === 'orange' ? 'Partiellement' : d.niveau === 'rouge' ? 'Non' : '\u2014';
+            const path = pathologyFor(c, d.niveau);
+            lines.push(c.label + ' : ' + niveauLabel + (path ? ' \u2014 ' + path : '') + (d.justif ? (' \u2014 ' + d.justif) : ''));
         });
-        if (weak.length) {
-            lines.push('');
-            lines.push('05.1 \u00b7 SCÉNARIOS ALTERNATIFS');
-            weak.forEach(c => {
-                const d = state.s5_1.scenarios[c.key];
-                lines.push(c.label + ' \u2014 scénario : ' + (d.scenario || '\u2014'));
-                lines.push(c.label + ' \u2014 risques (probabilité ' + d.probabilite + '/10) : ' + (d.risques || '\u2014'));
-                lines.push(c.label + ' \u2014 plan B : ' + (d.planB || '\u2014'));
-            });
-        }
         lines.push('');
         lines.push('06 \u00b7 PATHOLOGIES & PLAN D\u2019ACTION');
         if (weak.length) {
             const ranked = weak.map(c => {
                 const s = state.s6.scoring[c.key];
-                return { label: c.label, pathology: c.pathology, score: (s.impact + s.cout + s.delai) / 3 };
+                return { label: c.label, pathology: pathologyFor(c, state.s5.notes[c.key].niveau), score: (s.impact + s.cout + s.delai) / 3 };
             }).sort((a, b) => b.score - a.score);
             lines.push('Hiérarchie calculée : ' + ranked.map(r => r.label + ' (' + r.pathology + ') \u2014 ' + r.score.toFixed(1)).join(' | '));
         }
@@ -644,7 +611,7 @@
         }).catch(() => { });
     }
 
-    const builders = [buildSlide0, buildSlide1, buildSlide2, buildSlide3, buildSlide4, buildSlide4_1, buildSlide5, buildSlide5_1, buildSlide6, buildSlide7, buildSynthesis];
+    const builders = [buildSlide0, buildSlide1, buildSlide2, buildSlide3, buildSlide4, buildSlide4_1, buildSlide5, buildSlide6, buildSlide7, buildSynthesis];
 
     // ---------------- render shell ----------------
     const stage = document.getElementById('stage');
@@ -693,8 +660,7 @@
         if (i < 0 || i > LAST_STEP) return;
         slideEls[current].classList.remove('active');
         current = i;
-        // rebuild dynamic slides every time they're entered, so 5.1 / 6 reflect the latest state.s5 notes
-        if (i === LAST_STEP || i === 7 || i === 8) { rerenderSlide(i); }
+        if (i === LAST_STEP || i === 7) { rerenderSlide(i); }
         slideEls[current].classList.add('active');
         refreshShell();
     }

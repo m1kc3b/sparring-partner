@@ -10,6 +10,8 @@
     --lever-soft: #9C6B3016;
     --danger: #8C3B2E;
     --danger-soft: #8C3B2E12;
+    --vert: #3F7A4E;
+    --orange: #C97A2B;
     --radius: 3px;
     --pad-x: clamp(14px, 2.2vw, 12px);
 }
@@ -408,6 +410,28 @@ textarea::placeholder {
 }
 
 .toggle button.sel-non.selected {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: #fff;
+}
+
+.toggle3 {
+    flex-wrap: wrap;
+}
+
+.toggle3 .lvl-btn.lvl-vert.selected {
+    background: var(--vert);
+    border-color: var(--vert);
+    color: #fff;
+}
+
+.toggle3 .lvl-btn.lvl-orange.selected {
+    background: var(--orange);
+    border-color: var(--orange);
+    color: #fff;
+}
+
+.toggle3 .lvl-btn.lvl-rouge.selected {
     background: var(--danger);
     border-color: var(--danger);
     color: #fff;

@@ -223,7 +223,7 @@ p.hint {
     color: var(--muted);
     line-height: 1.55;
     margin: 0 0 30px;
-    max-width: 60ch;
+    /* max-width: 60ch; */
 }
 
 .field {
@@ -294,6 +294,12 @@ textarea::placeholder {
     gap: 6px 28px;
 }
 
+.grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px 28px;
+}
+
 @media (max-width:640px) {
     .grid-2 {
         grid-template-columns: 1fr;
@@ -341,8 +347,9 @@ textarea::placeholder {
     font-style: italic;
     font-size: inherit;
     display: inline-block;
+    field-sizing: content;
     width: auto;
-    min-width: 110px;
+    min-width: 200px;
     border-bottom: 1.5px solid var(--structure);
     padding: 0 4px 2px;
 }
@@ -407,15 +414,24 @@ textarea::placeholder {
 }
 
 /* step 5 — notation sliders */
+.slider-field {
+    margin-bottom: 12px;
+}
+
+.slider-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin-top: 8px;
+    margin-bottom: 0;
+    height: 38px;
+}
+
 .seuil-row {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 28px;
-    padding: 10px 14px;
-    background: var(--structure-soft);
-    border-radius: var(--radius);
-    width: fit-content;
+    margin-bottom: 24px;
 }
 
 .seuil-row label {
@@ -432,8 +448,7 @@ textarea::placeholder {
 }
 
 .crit-block {
-    border-top: 1px solid var(--line);
-    padding: 20px 0;
+    margin-bottom: 24px;
 }
 
 .crit-block:last-of-type {
@@ -447,34 +462,64 @@ textarea::placeholder {
     max-width: 56ch;
 }
 
-.slider-field {
-    margin-bottom: 16px;
-}
-
-.slider-label-row {
+.slider-row {
+    position: relative;
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    margin-bottom: 8px;
+    align-items: center;
+    margin-top: 8px;
+    margin-bottom: 12px;
+    height: 38px;
 }
 
-.slider-label-row label {
-    font-size: 13.5px;
-    font-weight: 600;
+.slider-row input[type=range] {
+    width: 100%;
     margin: 0;
+    cursor: pointer;
 }
 
-.slider-badge {
+/* Stylisation du bouton (Thumb) sur Webkit (Chrome, Safari, Edge) */
+.slider-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    height: 32px;
+    width: 32px;
+    border-radius: 50%;
+    background: var(--structure);
+    cursor: pointer;
+    margin-top: -12px;
+    /* Centrage sur la piste */
+}
+
+/* Stylisation du bouton (Thumb) sur Firefox */
+.slider-row input[type=range]::-moz-range-thumb {
+    height: 32px;
+    width: 32px;
+    border: none;
+    border-radius: 50%;
+    background: var(--structure);
+    cursor: pointer;
+}
+
+/* Chiffre positionné dans le bouton */
+.slider-thumb-value {
+    position: absolute;
+    top: 30%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    /* Laisse passer les clics vers le slider */
+    color: #ffffff;
     font-family: 'Source Serif 4', serif;
-    font-size: 19px;
-    font-weight: 600;
-    color: var(--structure);
-    min-width: 28px;
-    text-align: right;
+    font-size: 20px;
+    font-weight: 700;
+    user-select: none;
 }
 
-.warn-inline .slider-badge {
-    color: var(--danger);
+/* Couleur du bouton en cas d'alerte */
+.warn-inline .slider-row input[type=range]::-webkit-slider-thumb {
+    background: var(--danger);
+}
+
+.warn-inline .slider-row input[type=range]::-moz-range-thumb {
+    background: var(--danger);
 }
 
 input[type=range] {

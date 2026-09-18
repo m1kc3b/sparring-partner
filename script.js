@@ -2,10 +2,10 @@
 
     // ---------------- reference data ----------------
     const CRITERIA = [
-        { key: 'client', label: 'Bénéfice Client', question: 'Le Client tire-t-il un bénéfice réel et direct de la transformation ?', pathology: 'Inversion des rôles — captation du But' },
-        { key: 'acteurs', label: 'Moyens des Acteurs', question: 'Les Acteurs ont-ils concrètement les moyens d\u2019exécuter la transformation ?', pathology: 'Erreur de cadrage — illusion d\u2019exécution' },
-        { key: 'owner', label: 'Pouvoir de l\u2019Owner', question: 'L\u2019Owner a-t-il, dans les faits, le pouvoir d\u2019arbitrer ?', pathology: 'Trou de gouvernance — illusion de contrôle' },
-        { key: 'w', label: 'Solidité de W', question: 'La croyance (W) résiste-t-elle à une reformulation ou à des faits contraires ?', pathology: 'Dérive des attributs — dogme / faux garant' }
+        { key: 'client', label: 'Bénéfice Client', question: 'Le Client tire-t-il un bénéfice réel et direct de la transformation ?', pathology: 'Inversion des rôles — captation du But', motivation: "Comment mesurerez-vous ce bénéfice ?" },
+        { key: 'acteurs', label: 'Moyens des Acteurs', question: 'Les Acteurs ont-ils concrètement les moyens d\u2019exécuter la transformation ?', pathology: 'Erreur de cadrage — illusion d\u2019exécution', motivation: "Qu’est-ce qui manque pour atteindre 10/10 ?" },
+        { key: 'owner', label: 'Pouvoir de l\u2019Owner', question: 'L\u2019Owner a-t-il, dans les faits, le pouvoir d\u2019arbitrer ?', pathology: 'Trou de gouvernance — illusion de contrôle', motivation: "Qui d’autre pourrait bloquer T ?" },
+        { key: 'w', label: 'Solidité de W', question: 'La croyance (W) résiste-t-elle à une reformulation ou à des faits contraires ?', pathology: 'Dérive des attributs — dogme / faux garant', motivation: "Qu’est-ce qui pourrait invalider cette croyance ?" }
     ];
 
     function freshState() {
@@ -75,28 +75,48 @@
     }
 
     function sliderField(labelText, subText, key, obj, onChange, dangerWhenBelow) {
-        const wrap = el('div', { class: 'slider-field' });
-        const row = el('div', { class: 'slider-label-row' });
+        const wrap = el('div', { class: 'field slider-field' });
+
+        // Label et sous-texte
         const label = el('label', {}, [document.createTextNode(labelText)]);
-        row.appendChild(label);
-        const badge = el('span', { class: 'slider-badge' }, [document.createTextNode(String(obj[key]))]);
-        row.appendChild(badge);
-        wrap.appendChild(row);
-        if (subText) wrap.appendChild(el('p', { class: 'sub' }, [document.createTextNode(subText)]));
+        if (subText) label.appendChild(el('span', { class: 'sub' }, [document.createTextNode(subText)]));
+        wrap.appendChild(label);
+
+        // Slider et chiffre dans le bouton
+        const sliderRow = el('div', { class: 'slider-row' });
         const input = el('input', { type: 'range', min: '1', max: '10', step: '1' });
         input.value = obj[key];
+
+        const thumbValue = el('span', { class: 'slider-thumb-value' }, [document.createTextNode(String(obj[key]))]);
+
+        sliderRow.appendChild(input);
+        sliderRow.appendChild(thumbValue);
+        wrap.appendChild(sliderRow);
+
+        function updateThumbPosition() {
+            const min = parseFloat(input.min) || 1;
+            const max = parseFloat(input.max) || 10;
+            const val = parseFloat(input.value);
+            const percent = (val - min) / (max - min);
+            thumbValue.style.left = `calc(${percent * 100}% + ${(0.5 - percent) * 28}px)`;
+        }
+
         function paint() {
             const below = (typeof dangerWhenBelow === 'number') && obj[key] < dangerWhenBelow;
             wrap.classList.toggle('warn-inline', !!below);
         }
+
         input.addEventListener('input', () => {
             obj[key] = parseInt(input.value, 10);
-            badge.textContent = String(obj[key]);
+            thumbValue.textContent = String(obj[key]);
+            updateThumbPosition();
             paint();
             if (onChange) onChange();
         });
+
+        requestAnimationFrame(() => updateThumbPosition());
         paint();
-        wrap.appendChild(input);
+
         return wrap;
     }
 
@@ -111,18 +131,18 @@
         wrap.appendChild(el('h1', { class: 'question' }, [document.createTextNode('Avec qui travaillez-vous, et sur quel cadre vous accordez-vous ?')]));
         wrap.appendChild(el('p', { class: 'hint' }, [document.createTextNode('Les données restent en mémoire du navigateur — copiez ou imprimez la synthèse en fin de séance.')]));
 
-        const grid = el('div', { class: 'grid-2' });
+        const grid = el('div', { class: 'grid-3' });
         grid.appendChild(field('Dirigeant', null, 'dirigeant', state.meta, { placeholder: 'Nom du dirigeant' }));
         grid.appendChild(field('Entreprise', null, 'entreprise', state.meta, { placeholder: 'Nom de la structure' }));
+        grid.appendChild(field('Date de la séance', null, 'date', state.meta, { type: 'date' }));
         wrap.appendChild(grid);
-        wrap.appendChild(field('Date de la séance', null, 'date', state.meta, { type: 'date' }));
 
-        const sub = subsection('Cadre de la séance');
-        sub.appendChild(field('Contexte de la séance', 'pourquoi le dirigeant sollicite-t-il un coaching aujourd\u2019hui ?', 'contexte', state.s0, { textarea: true, rows: 2, placeholder: 'Ex : « Je veux résoudre un conflit entre deux services avant qu\u2019il n\u2019impacte nos livraisons. »' }));
-        sub.appendChild(field('Attentes du dirigeant', 'ce qu\u2019il espère obtenir de la séance', 'attentes', state.s0, { textarea: true, rows: 2, placeholder: 'Ex : « Une feuille de route claire pour les 3 prochains mois. »' }));
-        sub.appendChild(field('Règles du jeu', 'accord sur la confidentialité, la durée, le droit de challenger ses hypothèses', 'reglesJeu', state.s0, { textarea: true, rows: 2 }));
-        sub.appendChild(field('Objectifs du coach', 'ce que vous voulez obtenir de cette séance, en tant que facilitateur', 'objectifsCoach', state.s0, { textarea: true, rows: 2 }));
-        wrap.appendChild(sub);
+        // const sub = subsection('Cadre de la séance');
+        wrap.appendChild(field('Contexte de la séance', '"Qu’est-ce qui vous amène à travailler sur ce sujet aujourd’hui ?", "Depuis combien de temps ce problème existe-t-il ?"', 'contexte', state.s0, { textarea: true, rows: 2, placeholder: 'Ex : « Je veux résoudre un conflit entre deux services avant qu\u2019il n\u2019impacte nos livraisons. »' }));
+        wrap.appendChild(field('Attentes du dirigeant', '"À la fin de cette séance, qu’est-ce qui vous ferait dire que c’était utile : comprendre le problème, trouver des solutions, ou les deux ? "', 'attentes', state.s0, { textarea: true, rows: 2, placeholder: 'Ex : « Une feuille de route claire pour les 3 prochains mois. »' }));
+        // sub.appendChild(field('Règles du jeu', 'accord sur la confidentialité, la durée, le droit de challenger ses hypothèses', 'reglesJeu', state.s0, { textarea: true, rows: 2 }));
+        // sub.appendChild(field('Objectifs du coach', 'ce que vous voulez obtenir de cette séance, en tant que facilitateur', 'objectifsCoach', state.s0, { textarea: true, rows: 2 }));
+        // wrap.appendChild(sub);
         return wrap;
     }
 
@@ -132,8 +152,8 @@
         wrap.appendChild(el('p', { class: 'eyebrow' }, [el('span', { class: 'num' }, [document.createTextNode('01')]), document.createTextNode(' — Cadrage & verbalisation')]));
         wrap.appendChild(el('h1', { class: 'question' }, [document.createTextNode('Quel est le problème, tel qu\u2019il se pose aujourd\u2019hui ?')]));
         wrap.appendChild(el('p', { class: 'hint' }, [document.createTextNode('Laissez parler deux minutes, puis notez la formulation sans la rendre plus élégante ou plus théorique qu\u2019elle ne l\u2019est. Validez-la ensuite par un « oui » net.')]));
-        wrap.appendChild(field('L\u2019énoncé brut du problème', 'formulation littérale, sans reformulation', 'enonce', state.s1, { textarea: true, rows: 2, placeholder: 'Ex : « On a des problèmes de communication entre les équipes, et ça bloque nos projets. »' }));
-        wrap.appendChild(field('Le déclencheur récent', 'qu\u2019est-ce qui rend ce sujet urgent maintenant ?', 'declencheur', state.s1, { textarea: true, rows: 2, placeholder: 'Ex : « Un client a annulé un contrat à cause d\u2019un retard de livraison. »' }));
+        wrap.appendChild(field('L\u2019énoncé brut du problème', '"Pouvez-vous me décrire le problème tel que vous le voyez aujourd’hui ?"', 'enonce', state.s1, { textarea: true, rows: 2, placeholder: 'Ex : « On a des problèmes de communication entre les équipes, et ça bloque nos projets. »' }));
+        wrap.appendChild(field('Le déclencheur récent', '"Qu’est-ce qui a changé récemment pour que ce problème devienne une priorité ?"', 'declencheur', state.s1, { textarea: true, rows: 2, placeholder: 'Ex : « Un client a annulé un contrat à cause d\u2019un retard de livraison. »' }));
         return wrap;
     }
 
@@ -144,17 +164,17 @@
         wrap.appendChild(el('h1', { class: 'question' }, [document.createTextNode('Que se passe-t-il réellement sur le terrain ?')]));
         wrap.appendChild(el('p', { class: 'hint' }, [document.createTextNode('Les faits observés — pas l\u2019organigramme théorique.')]));
         const grid = el('div', { class: 'grid-2' });
-        grid.appendChild(field('Acteurs réels', 'personnes et groupes réellement impliqués', 'acteurs', state.s2, { textarea: true, rows: 3 }));
-        grid.appendChild(field('Ressources effectives', 'temps, budget, compétences réellement mobilisables', 'ressources', state.s2, { textarea: true, rows: 3 }));
-        grid.appendChild(field('Contraintes dures', 'règles, délais légaux, limites non négociables', 'contraintes', state.s2, { textarea: true, rows: 3 }));
-        grid.appendChild(field('Points de tension', 'frictions et blocages observés au quotidien', 'tensions', state.s2, { textarea: true, rows: 3 }));
+        grid.appendChild(field('Acteurs réels', 'Personnes ou groupes réellement impliqués (pas ceux qui devraient l’être).', 'acteurs', state.s2, { textarea: true, rows: 3 }));
+        grid.appendChild(field('Ressources effectives', 'Temps, budget, compétences disponibles en pratique.', 'ressources', state.s2, { textarea: true, rows: 3 }));
+        grid.appendChild(field('Contraintes dures', 'Règles, délais légaux, limites non négociables.', 'contraintes', state.s2, { textarea: true, rows: 3 }));
+        grid.appendChild(field('Points de tension', 'Frictions, blocages, conflits observés sur le terrain.', 'tensions', state.s2, { textarea: true, rows: 3 }));
+        grid.appendChild(field('Dynamiques cachées', 'Conflits informels, alliances, ou intérêts non avoués.', 'dynamiquesCachees', state.s2, { textarea: true, rows: 2, placeholder: 'Ex : « Le commercial veut minimiser les coûts, la logistique veut maximiser la qualité. »' }));
         wrap.appendChild(grid);
 
-        const sub = subsection('Lecture élargie (dimension éthique et systémique)');
-        sub.appendChild(field('Dynamiques cachées', 'conflits informels, alliances ou intérêts non avoués', 'dynamiquesCachees', state.s2, { textarea: true, rows: 2, placeholder: 'Ex : « Le commercial veut minimiser les coûts, la logistique veut maximiser la qualité. »' }));
-        sub.appendChild(field('Acteurs exclus', 'personnes non représentées mais impactées par le problème', 'acteursExclus', state.s2, { textarea: true, rows: 2 }));
-        sub.appendChild(field('Effets systémiques', 'impact du problème sur d\u2019autres parties du système', 'effetsSystemiques', state.s2, { textarea: true, rows: 2 }));
-        wrap.appendChild(sub);
+        // const sub = subsection('Lecture élargie (dimension éthique et systémique)');
+        // sub.appendChild(field('Acteurs exclus', 'personnes non représentées mais impactées par le problème', 'acteursExclus', state.s2, { textarea: true, rows: 2 }));
+        // sub.appendChild(field('Effets systémiques', 'impact du problème sur d\u2019autres parties du système', 'effetsSystemiques', state.s2, { textarea: true, rows: 2 }));
+        // wrap.appendChild(sub);
         return wrap;
     }
 
@@ -174,21 +194,21 @@
 
         const s = el('p', { class: 'sentence' });
         s.appendChild(document.createTextNode('Transformer '));
-        s.appendChild(sentInput('x', 'l\u2019élément central (X)', 'x'));
+        s.appendChild(sentInput('x', '[X] ce qui doit changer', 'x'));
         s.appendChild(document.createTextNode(' de '));
-        s.appendChild(sentInput('a', 'l\u2019état actuel (A)', 'etat'));
+        s.appendChild(sentInput('a', '[A] la situation problématique', 'etat'));
         s.appendChild(document.createTextNode(' à '));
-        s.appendChild(sentInput('b', 'l\u2019état visé (B)', 'etat'));
+        s.appendChild(sentInput('b', '[B] la situation idéale après la transformation', 'etat'));
         s.appendChild(document.createTextNode(' pour '));
-        s.appendChild(sentInput('c', 'le bénéfice principal (C)', 'c'));
+        s.appendChild(sentInput('c', '[C] pourquoi cette transformation est importante', 'c'));
         s.appendChild(document.createTextNode(', car '));
-        s.appendChild(sentInput('w', 'la croyance sous-jacente (W)', 'w'));
+        s.appendChild(sentInput('w', '[W] la croyance profonde qui justifie la transformation', 'w'));
         s.appendChild(document.createTextNode('.'));
         wrap.appendChild(s);
 
-        const sub = subsection('Légitimité de W');
-        sub.appendChild(field('Valeurs associées à W', 'ex : transparence, efficacité, équité — ce qui rend cette croyance défendable', 'valeursW', state.s3, { textarea: true, rows: 2 }));
-        wrap.appendChild(sub);
+        // const sub = subsection('Légitimité de W');
+        // sub.appendChild(field('Valeurs associées à W', 'ex : transparence, efficacité, équité — ce qui rend cette croyance défendable', 'valeursW', state.s3, { textarea: true, rows: 2 }));
+        // wrap.appendChild(sub);
         return wrap;
     }
 
@@ -198,15 +218,16 @@
         wrap.appendChild(el('p', { class: 'eyebrow' }, [el('span', { class: 'num' }, [document.createTextNode('04')]), document.createTextNode(' — Filtrage des 4 rôles (CATWOE)')]));
         wrap.appendChild(el('h1', { class: 'question' }, [document.createTextNode('Qui est réellement concerné par cette transformation ?')]));
         wrap.appendChild(el('p', { class: 'hint' }, [document.createTextNode('On ne recartographie pas tout — on filtre uniquement pour le T formulé à l\u2019étape précédente.')]));
-        wrap.appendChild(field('Client', 'le bénéficiaire réel et direct de la transformation', 'client', state.s4, { textarea: true, rows: 2 }));
-        wrap.appendChild(field('Acteurs', 'exécutants du changement, et personnes qui en subiront l\u2019impact', 'acteurs', state.s4, { textarea: true, rows: 2 }));
-        wrap.appendChild(field('Owner', 'qui a le pouvoir réel d\u2019arrêter ou de bloquer le projet', 'owner', state.s4, { textarea: true, rows: 2 }));
-        wrap.appendChild(field('Environnement', 'limites externes spécifiques à cette transformation', 'environnement', state.s4, { textarea: true, rows: 2 }));
 
-        const sub = subsection('Élargissement éthique (Ulrich)');
-        sub.appendChild(field('Victimes potentielles', 'acteurs qui pourraient subir des conséquences négatives de T', 'victimesPotentielles', state.s4, { textarea: true, rows: 2 }));
-        sub.appendChild(field('Bénéficiaires indirects', 'acteurs qui bénéficieraient indirectement de T', 'beneficiairesIndirects', state.s4, { textarea: true, rows: 2 }));
-        wrap.appendChild(sub);
+        const grid = el('div', { class: 'grid-2' });
+        grid.appendChild(field('Client', 'le bénéficiaire réel et direct de T', 'client', state.s4, { textarea: true, rows: 2 }));
+        grid.appendChild(field('Acteurs', "ceux qui exécutent T ou en subissent l'impact", 'acteurs', state.s4, { textarea: true, rows: 2 }));
+        grid.appendChild(field('Owner', 'celui qui a le pouvoir réel d\u2019arrêter ou de bloquer T', 'owner', state.s4, { textarea: true, rows: 2 }));
+        grid.appendChild(field('Environnement', 'contraintes externes spécifiques à T', 'environnement', state.s4, { textarea: true, rows: 2 }));
+        grid.appendChild(field('Victimes potentielles', 'acteurs qui pourraient subir des conséquences négatives de T', 'victimesPotentielles', state.s4, { textarea: true, rows: 2 }));
+        grid.appendChild(field('Bénéficiaires indirects', 'acteurs qui bénéficieraient indirectement de T', 'beneficiairesIndirects', state.s4, { textarea: true, rows: 2 }));
+        wrap.appendChild(grid);
+
         return wrap;
     }
 
@@ -216,10 +237,14 @@
         wrap.appendChild(el('p', { class: 'eyebrow' }, [el('span', { class: 'num' }, [document.createTextNode('04.1')]), document.createTextNode(' — Confrontation des perspectives')]));
         wrap.appendChild(el('h1', { class: 'question' }, [document.createTextNode('Que dirait un autre acteur du CATWOE, à la place du dirigeant ?')]));
         wrap.appendChild(el('p', { class: 'hint' }, [document.createTextNode('Faites parler le dirigeant à la place de cet acteur — sans qu\u2019il en ait forcément discuté avec lui.')]));
-        wrap.appendChild(field('Acteur confronté', 'un des rôles identifiés à l\u2019étape CATWOE', 'acteurConfronte', state.s4_1, { placeholder: 'Ex : le service logistique' }));
-        wrap.appendChild(field('Sa Weltanschauung supposée', 'comment cet acteur décrirait-il le problème, selon le dirigeant ?', 'wAutreActeur', state.s4_1, { textarea: true, rows: 2 }));
-        wrap.appendChild(field('Divergences', 'différences majeures avec la W du dirigeant', 'divergences', state.s4_1, { textarea: true, rows: 2 }));
-        wrap.appendChild(field('Convergences', 'points sur lesquels tout le monde s\u2019accorde', 'convergences', state.s4_1, { textarea: true, rows: 2 }));
+
+        const grid = el('div', { class: 'grid-2' });
+        grid.appendChild(field('Acteur confronté', 'un des rôles identifiés à l\u2019étape CATWOE', 'acteurConfronte', state.s4_1, { placeholder: 'Ex : le service logistique' }));
+        grid.appendChild(field('Sa W supposée', 'comment cet acteur décrirait-il le problème, selon le dirigeant ?', 'wAutreActeur', state.s4_1, { textarea: true, rows: 2 }));
+        grid.appendChild(field('Divergences', 'différences majeures avec la W du dirigeant', 'divergences', state.s4_1, { textarea: true, rows: 2 }));
+        grid.appendChild(field('Convergences', 'points sur lesquels tout le monde s\u2019accorde', 'convergences', state.s4_1, { textarea: true, rows: 2 }));
+        wrap.appendChild(grid);
+
         return wrap;
     }
 
@@ -243,22 +268,40 @@
         seuilRow.appendChild(el('span', {}, [document.createTextNode('/ 10')]));
         wrap.appendChild(seuilRow);
 
+        // Conteneur en 2 colonnes pour les 4 critères
+        const grid = el('div', { class: 'grid-2' });
+
         const warnRefs = [];
         CRITERIA.forEach(c => {
             const data = state.s5.notes[c.key];
             const block = el('div', { class: 'crit-block' });
-            block.appendChild(el('p', { class: 'crit-q' }, [document.createTextNode(c.question)]));
-            const slider = sliderField(c.label, null, 'note', data, () => repaintWarnings(), null);
+
+
+            // 1. Le slider seul (+ alerte)
+            const slider = sliderField(c.label, c.question, 'note', data, () => repaintWarnings());
             block.appendChild(slider);
+
             const warnText = el('p', { class: 'warn-text' });
             block.appendChild(warnText);
-            const justif = el('textarea', { rows: '2', placeholder: 'Justification — ce qui motive cette note' });
-            justif.value = data.justif || '';
-            justif.addEventListener('input', () => { data.justif = justif.value; });
-            block.appendChild(justif);
+
+            // 2. Le champ de justification séparé
+            const justifWrap = el('div', { class: 'field' });
+            // const justifLabel = el('label', {}, [document.createTextNode('Justification')]);
+            const justifInput = el('textarea', { rows: '2', placeholder: c.motivation });
+
+            justifInput.value = data.justif || '';
+            justifInput.addEventListener('input', () => { data.justif = justifInput.value; });
+
+            // justifWrap.appendChild(justifLabel);
+            justifWrap.appendChild(justifInput);
+            block.appendChild(justifWrap);
+
             warnRefs.push({ key: c.key, slider, warnText, pathology: c.pathology });
-            wrap.appendChild(block);
+
+            grid.appendChild(block);
         });
+
+        wrap.appendChild(grid);
 
         function repaintWarnings() {
             warnRefs.forEach(r => {
@@ -292,7 +335,7 @@
             head.appendChild(el('span', { class: 'wk-path' }, [document.createTextNode(c.pathology)]));
             block.appendChild(head);
             block.appendChild(field('Scénario alternatif', 'que pourrait-il se passer si ce critère reste faible ?', 'scenario', data, { textarea: true, rows: 2 }));
-            block.appendChild(field('Risques associés', null, 'risques', data, { textarea: true, rows: 2 }));
+            block.appendChild(field('Risques associés', "Quels risques cela implique-t-il ?", 'risques', data, { textarea: true, rows: 2 }));
             block.appendChild(sliderField('Probabilité que ce risque se produise', null, 'probabilite', data, null, null));
             block.appendChild(field('Plan B', 'action alternative, et qui prend le relais si le porteur du levier échoue', 'planB', data, { textarea: true, rows: 2 }));
             wrap.appendChild(block);

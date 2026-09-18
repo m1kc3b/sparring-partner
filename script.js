@@ -14,6 +14,18 @@
         return '';
     }
 
+    const PRIORITY_ORDER = { owner: 0, acteurs: 1, w: 2, client: 3 };
+
+    function rankWeak(weak) {
+        const niveauRank = { rouge: 0, orange: 1 };
+        return weak.slice().sort((a, b) => {
+            const na = niveauRank[state.s5.notes[a.key].niveau];
+            const nb = niveauRank[state.s5.notes[b.key].niveau];
+            if (na !== nb) return na - nb;
+            return PRIORITY_ORDER[a.key] - PRIORITY_ORDER[b.key];
+        });
+    }
+
     function freshState() {
         return {
             meta: { dirigeant: '', entreprise: '', date: new Date().toISOString().slice(0, 10) },
@@ -27,7 +39,6 @@
                 notes: { client: { niveau: null, justif: '' }, acteurs: { niveau: null, justif: '' }, owner: { niveau: null, justif: '' }, w: { niveau: null, justif: '' } }
             },
             s6: {
-                scoring: { client: { impact: 5, cout: 5, delai: 5 }, acteurs: { impact: 5, cout: 5, delai: 5 }, owner: { impact: 5, cout: 5, delai: 5 }, w: { impact: 5, cout: 5, delai: 5 } },
                 hierarchieNote: '', levier: '', effetsSystemiques: '', porteur: '', signal: '', delaiRevue: ''
             },
             s7: { resultats: '', ecarts: '', ajustements: '', prochaineIteration: '', lecons: '' }
@@ -334,46 +345,23 @@
         const wrap = el('div', { class: 'slide-inner' });
         wrap.appendChild(el('p', { class: 'eyebrow' }, [el('span', { class: 'num' }, [document.createTextNode('06')]), document.createTextNode(' — Hiérarchie des pathologies systémiques & plan d\u2019action')]));
         wrap.appendChild(el('h1', { class: 'question' }, [document.createTextNode('Quel est le seul levier à activer maintenant ?')]));
-        wrap.appendChild(el('p', { class: 'hint' }, [document.createTextNode('Un seul levier à la fois. La hiérarchie ci-dessous se calcule sur un critère objectif — impact sur T, coût, délai — pas sur l\u2019impression du moment.')]));
+        wrap.appendChild(el('p', { class: 'hint' }, [document.createTextNode('Un seul levier à la fois. Un critère rouge est toujours prioritaire sur un orange ; à égalité, l\u2019ordre est : Owner, Acteurs, W, Client.')]));
 
-        const weak = weakCriteria();
-        const rankList = el('ul', { class: 'rank-list' });
+        const ranked = rankWeak(weakCriteria());
 
-        function recomputeRank() {
-            const rows = weak.map(c => {
-                const s = state.s6.scoring[c.key];
-                const score = (s.impact + s.cout + s.delai) / 3;
-                return { label: c.label, pathology: pathologyFor(c, state.s5.notes[c.key].niveau), score };
-            }).sort((a, b) => b.score - a.score);
-            rankList.innerHTML = '';
-            rows.forEach(r => {
-                const li = el('li', {});
-                li.appendChild(el('span', { class: 'rk-name' }, [document.createTextNode(r.label + ' \u2014 ' + r.pathology)]));
-                li.appendChild(el('span', { class: 'rk-score' }, [document.createTextNode(r.score.toFixed(1))]));
-                rankList.appendChild(li);
-            });
-        }
-
-        if (weak.length === 0) {
+        if (ranked.length === 0) {
             wrap.appendChild(el('p', { class: 'empty-state' }, [document.createTextNode('Aucune pathologie critique détectée à l\u2019étape 5 \u2014 le levier peut porter sur une simple consolidation.')]));
         } else {
-            weak.forEach(c => {
-                const s = state.s6.scoring[c.key];
-                const block = el('div', { class: 'weak-block' });
-                const head = el('div', { class: 'weak-head' });
-                head.appendChild(el('span', { class: 'wk-title' }, [document.createTextNode(c.label)]));
-                head.appendChild(el('span', { class: 'wk-path' }, [document.createTextNode(pathologyFor(c, state.s5.notes[c.key].niveau))]));
-                block.appendChild(head);
-                const scoreMini = el('div', { class: 'score-mini' });
-                scoreMini.appendChild(sliderField('Impact sur T', null, 'impact', s, recomputeRank, null));
-                scoreMini.appendChild(sliderField('Coût', null, 'cout', s, recomputeRank, null));
-                scoreMini.appendChild(sliderField('Délai', null, 'delai', s, recomputeRank, null));
-                block.appendChild(scoreMini);
-                wrap.appendChild(block);
+            wrap.appendChild(el('p', { class: 'subsection-label' }, [document.createTextNode('Hiérarchie (la plus critique en premier)')]));
+            const rankList = el('ul', { class: 'rank-list' });
+            ranked.forEach((c, i) => {
+                const niveau = state.s5.notes[c.key].niveau;
+                const li = el('li', {});
+                li.appendChild(el('span', { class: 'rk-name' }, [document.createTextNode((i + 1) + '. ' + c.label + ' \u2014 ' + pathologyFor(c, niveau))]));
+                li.appendChild(el('span', { class: 'rk-score' }, [document.createTextNode(niveau === 'rouge' ? 'Rouge' : 'Orange')]));
+                rankList.appendChild(li);
             });
-            wrap.appendChild(el('p', { class: 'subsection-label' }, [document.createTextNode('Hiérarchie calculée (score moyen, la plus critique en premier)')]));
             wrap.appendChild(rankList);
-            recomputeRank();
             wrap.appendChild(field('Notes sur la hiérarchie', 'ce que le classement automatique ne capture pas', 'hierarchieNote', state.s6, { textarea: true, rows: 2 }));
         }
 
@@ -500,11 +488,8 @@
         const sec6 = el('div', { class: 'synth-section' });
         sec6.appendChild(el('h2', { class: 'lever-label' }, [document.createTextNode('06 \u00b7 Pathologies & plan d\u2019action')]));
         if (weak.length) {
-            const ranked = weak.map(c => {
-                const s = state.s6.scoring[c.key];
-                return { label: c.label, pathology: pathologyFor(c, state.s5.notes[c.key].niveau), score: (s.impact + s.cout + s.delai) / 3 };
-            }).sort((a, b) => b.score - a.score);
-            sec6.appendChild(synthRow('Hiérarchie calculée', ranked.map(r => r.label + ' (' + r.pathology + ') \u2014 ' + r.score.toFixed(1)).join('\n')));
+            const ranked = rankWeak(weak);
+            sec6.appendChild(synthRow('Hiérarchie', ranked.map((c, i) => (i + 1) + '. ' + c.label + ' (' + pathologyFor(c, state.s5.notes[c.key].niveau) + ')').join('\n')));
         }
         sec6.appendChild(synthRow('Notes sur la hiérarchie', state.s6.hierarchieNote));
         const lev = el('div', { class: 'synth-lever' });
@@ -581,13 +566,9 @@
         lines.push('');
         lines.push('06 \u00b7 PATHOLOGIES & PLAN D\u2019ACTION');
         if (weak.length) {
-            const ranked = weak.map(c => {
-                const s = state.s6.scoring[c.key];
-                return { label: c.label, pathology: pathologyFor(c, state.s5.notes[c.key].niveau), score: (s.impact + s.cout + s.delai) / 3 };
-            }).sort((a, b) => b.score - a.score);
-            lines.push('Hiérarchie calculée : ' + ranked.map(r => r.label + ' (' + r.pathology + ') \u2014 ' + r.score.toFixed(1)).join(' | '));
+            const ranked = rankWeak(weak);
+            lines.push('Hiérarchie : ' + ranked.map((c, i) => (i + 1) + '. ' + c.label + ' (' + pathologyFor(c, state.s5.notes[c.key].niveau) + ')').join(' | '));
         }
-        if (state.s6.hierarchieNote) lines.push('Notes sur la hiérarchie : ' + state.s6.hierarchieNote);
         lines.push('Action (levier unique) : ' + (state.s6.levier || '\u2014'));
         lines.push('Effets systémiques du levier : ' + (state.s6.effetsSystemiques || '\u2014'));
         lines.push('Porteur : ' + (state.s6.porteur || '\u2014'));
